@@ -84,6 +84,82 @@
     return matrix;
 }
 
+#if !TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
++ (NSImage*)renderDataMatrix:(DataMatrix*)matrix imageDimension:(int)imageDimension {
+
+    const int bitsPerPixel = BITS_PER_BYTE * BYTES_PER_PIXEL;
+    const int bytesPerLine = BYTES_PER_PIXEL * imageDimension;
+    const int rawDataSize = imageDimension * imageDimension * BYTES_PER_PIXEL;
+    unsigned char* rawData = (unsigned char*)malloc(rawDataSize);
+
+    int matrixDimension = [matrix dimension];
+    int pixelPerDot = imageDimension / matrixDimension;
+    int offsetTopAndLeft = (int)((imageDimension - pixelPerDot * matrixDimension) / 2);
+    int offsetBottomAndRight = (imageDimension - pixelPerDot * matrixDimension - offsetTopAndLeft);
+
+    // alpha, blue, green, red
+    const uint32_t white = 0xFFFFFFFF, black = 0xFF000000, transp = 0x00FFFFFF;
+
+    uint32_t *ptrData = (uint32_t *)rawData;
+    // top offset
+    for(int c=offsetTopAndLeft*imageDimension; c>0; c--)
+        *(ptrData++) = transp;
+
+    for(int my=0; my<matrixDimension; my++) {
+        uint32_t *ptrDataSouce = ptrData; // start of the row we will copy
+        // left offset
+        for(int c=offsetTopAndLeft; c>0; c--)
+            *(ptrData++) = transp;
+
+        for(int mx=0; mx<matrixDimension; mx++) {
+            uint32_t clr = [matrix valueAt:mx y:my] ? black : white;
+            // draw one pixel line of data
+            for(int c=pixelPerDot; c>0; c--)
+                *(ptrData++) = clr;
+        }
+
+        // right offset
+        for(int c=offsetBottomAndRight; c>0; c--)
+            *(ptrData++) = transp;
+
+        // then copy that row pixelPerDot-1 times
+        for(int c=(pixelPerDot-1)*imageDimension; c>0; c--)
+            *(ptrData++) = *(ptrDataSouce++);
+    }
+
+    // bottom offset
+    for(int c=offsetBottomAndRight*imageDimension; c>0; c--)
+        *(ptrData++) = transp;
+
+    CGDataProviderRef provider = CGDataProviderCreateWithData(NULL,
+                                                              rawData,
+                                                              rawDataSize,
+                                                              FLProviderReleaseData);
+
+    CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGB();
+    CGBitmapInfo bitmapInfo = kCGBitmapByteOrderDefault | kCGImageAlphaLast;
+    CGColorRenderingIntent renderingIntent = kCGRenderingIntentDefault;
+    CGImageRef imageRef = CGImageCreate(imageDimension,
+                                        imageDimension,
+                                        BITS_PER_BYTE,
+                                        bitsPerPixel,
+                                        bytesPerLine,
+                                        colorSpaceRef,
+                                        bitmapInfo,
+                                        provider,
+                                        NULL,NO,renderingIntent);
+
+    NSImage *newImage = [[NSImage alloc] initWithCGImage:imageRef size:NSMakeSize(imageDimension, imageDimension)];
+
+    CGImageRelease(imageRef);
+    CGColorSpaceRelease(colorSpaceRef);
+    CGDataProviderRelease(provider);
+
+    return newImage;
+}
+
+
+#else
 + (UIImage*)renderDataMatrix:(DataMatrix*)matrix imageDimension:(int)imageDimension {
     
     const int bitsPerPixel = BITS_PER_BYTE * BYTES_PER_PIXEL;
@@ -156,6 +232,8 @@
     
     return newImage;
 }
+
+#endif
 
 void FLProviderReleaseData(void *info, const void *data, size_t size) {
     free((void *)data);

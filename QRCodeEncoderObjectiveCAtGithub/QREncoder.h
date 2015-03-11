@@ -1,7 +1,11 @@
 
 
 #import <Foundation/Foundation.h>
+#if !TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
+#import <Cocoa/Cocoa.h>
+#else
 #import <UIKit/UIKit.h>
+#endif
 #import <CommonCrypto/CommonCryptor.h>
 #include "QR_Encode.h"
 #import "DataMatrix.h"
@@ -27,7 +31,11 @@ const static unsigned char WHITE =  0xff;
 
 + (DataMatrix*)encodeWithECLevel:(int)ecLevel version:(int)version string:(NSString*)string;
 
+#if !TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
++ (NSImage*)renderDataMatrix:(DataMatrix*)matrix imageDimension:(int)imageDimension;
+#else
 + (UIImage*)renderDataMatrix:(DataMatrix*)matrix imageDimension:(int)imageDimension;
+#endif
 
 @end
 
